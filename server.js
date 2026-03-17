@@ -17,6 +17,6 @@ app.get('/', (req, res) => {
 // port (IMPORTANT for Railway)
 const PORT = process.env.PORT || 8000;
 
-app.listen(PORT, () => {
+app.listen(8000, () => {
   console.log(`Server running on port ${PORT}`);
 });
