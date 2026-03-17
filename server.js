@@ -3,8 +3,8 @@ import http from 'http';
 import { Server } from 'socket.io';
 import app from './app.js';
 
-const PORT = process.env.PORT || 5000;
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/bizlift';
+const PORT = process.env.PORT || 8000;
+const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://mrnoukhan7377:MyDB123@mydb.eymfa.mongodb.net/test';
 
 const server = http.createServer(app);
 
@@ -80,10 +80,10 @@ io.on('connection', (socket) => {
 });
 
 mongoose
-  .connect("mongodb+srv://mrnoukhan7377:MyDB123@mydb.eymfa.mongodb.net/test")
+  .connect(MONGO_URI)
   .then(() => {
-    server.listen(PORT, () => {
-      console.log(`Server running on http://localhost:${PORT}`);
+    server.listen(8000, () => {
+      console.log(`Server running on http://localhost:8000`);
     });
   })
   .catch((err) => {
