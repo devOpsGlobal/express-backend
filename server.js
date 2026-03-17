@@ -1,18 +1,31 @@
-const path = require("path");
-const config = require("./configs/config");
-const app = require("./app");
-const { initWebSocket } = require("./ws/websocket");
-const express = require("express");
+require('dotenv').config();
 
-app.use(express.static(path.join(__dirname, "..", "client", "dist")));
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
 
-app.get("*", (req, res) => {
-    res.sendFile(path.join(__dirname, "..", "client", "dist", "index.html"));
+const app = express();
+
+// middleware
+app.use(cors());
+app.use(express.json());
+
+// test route
+app.get('/', (req, res) => {
+  res.json({ message: 'Server is running 🚀' });
 });
 
-initWebSocket();
+// MongoDB connect
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+.then(() => console.log('MongoDB connected'))
+.catch(err => console.log(err));
 
-app.listen(config.port || 8000, "0.0.0.0", () => {
-    console.log(`☑️ Server running at http://localhost:${config.port || 8000}`);
-    console.log(`☑️  Public Server running at http://192.0.0.0:${config.port || 8000}`);
+// port (IMPORTANT for Railway)
+const PORT = process.env.PORT || 8000;
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
