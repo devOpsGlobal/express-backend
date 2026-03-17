@@ -1,36 +1,42 @@
-const express = require("express");
-const config = require("./configs/config");
-const connectDB = require("./configs/database");
-const globalErrorHandler = require("./middlewares/globalErrorHandler");
-const cookieParser = require("cookie-parser");
-const cors = require("cors");
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+import authRoutes from './routes/auth.routes.js';
+import serviceRoutes from './routes/service.routes.js';
+import uploadRoutes from './routes/upload.routes.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
-connectDB();
-
-app.use(
-  cors({
-    credentials: true,
-    origin: (origin, callback) => {
-      if (!origin || config.allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-  })
-);
-
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:3000', credentials: true }));
+app.use(morgan('dev'));
 app.use(express.json());
-app.use(cookieParser());
+app.use(express.urlencoded({ extended: true }));
 
-app.use("/api/user", require("./routes/userRoute"));
-app.use("/api/order", require("./routes/orderRoute"));
-app.use("/api/table", require("./routes/tableRoute"));
-app.use("/api/payment", require("./routes/paymentRoute"));
-app.use("/api/notifications", require("./routes/notifications"));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-app.use(globalErrorHandler);
+app.use('/api/auth', authRoutes);
+app.use('/api/services', serviceRoutes);
+app.use('/api/upload', uploadRoutes);
 
-module.exports = app;
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+app.use((req, res) => {
+  res.status(404).json({ message: 'Route not found' });
+});
+
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(err.status || 500).json({ message: err.message || 'Internal server error' });
+});
+
+export default app;
