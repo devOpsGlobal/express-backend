@@ -79,6 +79,14 @@ io.on('connection', (socket) => {
   });
 });
 
-const server = app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+mongoose
+  .connect("mongodb+srv://mrnoukhan7377:MyDB123@mydb.eymfa.mongodb.net/test")
+  .then(() => {
+    server.listen(PORT, () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error('MongoDB connection error:', err.message);
+    process.exit(1);
+  });
