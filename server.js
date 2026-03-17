@@ -57,7 +57,7 @@ const upload = multer({ storage, fileFilter, limits: { fileSize: 5 * 1024 * 1024
 
 const app = express();
 
-app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:3000', credentials: true }));
+app.use(cors({ origin: '*', credentials: true }));
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -176,16 +176,53 @@ app.use((err, _req, res, _next) => {
 const server = http.createServer(app);
 
 const io = new Server(server, {
-  cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:3000',
-    methods: ['GET', 'POST'],
-    credentials: true,
-  },
+  cors: { origin: '*', methods: ['GET', 'POST'], credentials: true },
 });
 
 const onlineUsers = new Map();
+const rooms = new Map();
 
 io.on('connection', (socket) => {
+
+  socket.on('room:join', ({ roomId, name }) => {
+    socket.join(roomId);
+    socket.data.roomId = roomId;
+    socket.data.name = name;
+
+    if (!rooms.has(roomId)) rooms.set(roomId, new Map());
+    rooms.get(roomId).set(socket.id, { id: socket.id, name });
+
+    const participants = Array.from(rooms.get(roomId).values()).filter(p => p.id !== socket.id);
+    socket.emit('room:participants', participants);
+
+    socket.to(roomId).emit('room:user_joined', { userId: socket.id, name });
+  });
+
+  socket.on('room:leave', (roomId) => {
+    handleLeave(socket, roomId);
+  });
+
+  socket.on('webrtc:offer', ({ to, offer }) => {
+    io.to(to).emit('webrtc:offer', { from: socket.id, offer });
+  });
+
+  socket.on('webrtc:answer', ({ to, answer }) => {
+    io.to(to).emit('webrtc:answer', { from: socket.id, answer });
+  });
+
+  socket.on('webrtc:ice', ({ to, candidate }) => {
+    io.to(to).emit('webrtc:ice', { from: socket.id, candidate });
+  });
+
+  socket.on('room:message', ({ roomId, senderId, senderName, message }) => {
+    io.to(roomId).emit('room:message_received', {
+      senderId,
+      senderName,
+      message,
+      timestamp: new Date().toISOString(),
+    });
+  });
+
   socket.on('user:join', (userId) => {
     onlineUsers.set(userId, socket.id);
     socket.data.userId = userId;
@@ -197,22 +234,6 @@ io.on('connection', (socket) => {
     const payload = { senderId, message, timestamp: new Date().toISOString() };
     if (recipientSocketId) io.to(recipientSocketId).emit('message:receive', payload);
     socket.emit('message:delivered', { ...payload, delivered: !!recipientSocketId });
-  });
-
-  socket.on('room:join', (roomId) => {
-    socket.join(roomId);
-    socket.to(roomId).emit('room:user_joined', { userId: socket.data.userId, roomId });
-  });
-
-  socket.on('room:leave', (roomId) => {
-    socket.leave(roomId);
-    socket.to(roomId).emit('room:user_left', { userId: socket.data.userId, roomId });
-  });
-
-  socket.on('room:message', ({ roomId, senderId, message }) => {
-    io.to(roomId).emit('room:message_received', {
-      senderId, message, roomId, timestamp: new Date().toISOString(),
-    });
   });
 
   socket.on('typing:start', ({ recipientId, senderId }) => {
@@ -234,12 +255,22 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
+    if (socket.data.roomId) handleLeave(socket, socket.data.roomId);
     if (socket.data.userId) {
       onlineUsers.delete(socket.data.userId);
       io.emit('users:online', Array.from(onlineUsers.keys()));
     }
   });
 });
+
+function handleLeave(socket, roomId) {
+  socket.leave(roomId);
+  socket.to(roomId).emit('room:user_left', { userId: socket.id, name: socket.data.name });
+  if (rooms.has(roomId)) {
+    rooms.get(roomId).delete(socket.id);
+    if (rooms.get(roomId).size === 0) rooms.delete(roomId);
+  }
+}
 
 mongoose
   .connect(MONGO_URI)
