@@ -13,7 +13,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const PORT = process.env.PORT || 8000;
+const PORT = 8000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://mrnoukhan7377:MyDB123@mydb.eymfa.mongodb.net/test';
 
 const uploadsDir = path.join(__dirname, 'uploads');
